@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Data Visualization</title>
+    <!-- Include D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Include CSS styles -->
+    <style>
+        /* CSS styles */
+        header {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+            background-color: orangeRed;
+            height: 70px;
+            width: 100%; /* Set header width to 100% */
+            position: fixed; /* Fixed position to stay on top */
+            top: 0; /* Align to the top of the viewport */
+            z-index: 999; /* Ensure header is above other content */
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .title {
+            font-size: 36px;
+            padding-right: 15px;
+            color: white;
+            margin-left: 20px;
+        }
+
+        .authors {
+            padding-top: 30px;
+            font-size: 16px;
+            color: white;
+            font-style: italic;
+        }
+
+        /* Your existing CSS styles here */
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: lightpink; /* Changed background color to light pink */
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            max-width: 80%;
+            text-align: center;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <!-- Your header content -->
+        <div class="title">Heart Data Visualization</div>
+        <div class="authors">Authors: lil ole kendall</div>
+    </header>
+    <div id="visualization-container" style="display: flex;"> <!-- Added style to make the container a flexbox -->
+        <svg id="scatter-plot-svg" style="flex: 1;"></svg> <!-- Added flex property -->
+        <div id="bar-chart" style="flex: 1;"></div> <!-- Added flex property -->
+    </div>
+
+    <!-- Popup content -->
+    <div id="popup" class="popup">
+        <span class="popup-close" onclick="closePopup()">X</span>
+        <p>Hi! Welcome to a data visualization for CS4804 by Kendall Haddigan. I've created an interactive bar chart and scatter plot. Feel free to select the categories for the x and y axis on the scatterplot, and if you select a certain bar from the bar chart, the data on the scatterplot will automatically adjust to only show data within that age range. Data was sourced from <a href="https://www.kaggle.com/datasets/thedevastator/exploring-risk-factors-for-cardiovascular-diseas">here</a>. Enjoy!</p>
+    </div>
+
+    <script>
+        // JavaScript functions for popup
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+        }
+
+        // Show popup when the page loads
+        window.onload = function() {
+            document.getElementById('popup').style.display = 'block';
+        };
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Load the dataset
+            d3.csv("heart_data.csv").then(function(data) {
+                // Convert string values to numbers where necessary
+                data.forEach(function(d) {
+                    d.age_in_years = +d.age_in_years;
+                    d.cardio = +d.cardio;
+                    // Convert other relevant columns to numbers if needed
+                });
+
+                // Set up SVG dimensions and margins
+                var margin = { top: 90, right: 30, bottom: 50, left: 70 }; // Adjusted top margin for the header
+var width = window.innerWidth * 0.4 - margin.left - margin.right; // Adjusted width
+var height = window.innerHeight - 150 - margin.top - margin.bottom;
+
+                // Create scales for scatter plot (default to age and ap_hi)
+                var xScale = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.age_in_years), d3.max(data, d => d.age_in_years)])
+                    .range([0, width]);
+
+                var yScale = d3.scaleLinear()
+                    .domain([55, 250]) // Adjusted y-axis domain for height
+                    .range([height, 0]);
+
+                // Create bins for cardiovascular disease by age
+                var bins = d3.histogram()
+                    .value(d => d.age_in_years)
+                    .domain(xScale.domain())
+                    .thresholds(xScale.ticks(10))(data);
+
+                // Create scales for bar chart
+                var xBarScale = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.age_in_years), d3.max(data, d => d.age_in_years)])
+                    .range([0, width]);
+
+                var yBarScale = d3.scaleLinear()
+                    .domain([0, d3.max(bins, d => d.length)])
+                    .range([height, 0]);
+
+                // Create scatter plot SVG
+                var scatterSvg = d3.select("#scatter-plot-svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+                    .attr("preserveAspectRatio", "xMinYMin")
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                // Create bar chart SVG
+                var barSvg = d3.select("#bar-chart")
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                // Append dropdowns for X and Y axes selection
+                var xAxisDropdown = scatterSvg.append("foreignObject")
+                    .attr("class", "dropdown-container")
+                    .attr("x", width / 2 - 50)
+                    .attr("y", height + 31) // Adjusted y position
+                    .attr("width", 100)
+                    .attr("height", 60) // Increased height for both dropdowns
+                    .html(
+                        '<select id="x-axis">' +
+                        '<option value="age_in_years">Age</option>' +
+                        '<option value="gender">Gender</option>' +
+                        '<option value="height">Height</option>' +
+                        '<option value="weight">Weight</option>' +
+                        '<option value="ap_hi">Systolic Blood Pressure</option>' +
+                        '<option value="ap_lo">Diastolic Blood Pressure</option>' +
+                        '<option value="cholesterol">Cholesterol</option>' +
+                        '<option value="gluc">Glucose</option>' +
+                        '<option value="smoke">Smoke</option>' +
+                        '<option value="alco">Alcohol</option>' +
+                        '<option value="active">Active</option>' +
+                        '</select>');
+
+                var yAxisDropdown = scatterSvg.append("foreignObject")
+                    .attr("class", "dropdown-container")
+                    .attr("x", -height / 2 - 30)
+                    .attr("y", -margin.left + 10)
+                    .attr("width", 100)
+                    .attr("height", 60) // Increased height for both dropdowns
+                    .attr("transform", "rotate(-90)")
+                    .html(
+                        '<select id="y-axis">' +
+                        '<option value="age_in_years">Age</option>' +
+                        '<option value="gender">Gender</option>' +
+                        '<option value="height">Height</option>' +
+                        '<option value="weight">Weight</option>' +
+                        '<option value="ap_hi">Systolic Blood Pressure</option>' +
+                        '<option value="ap_lo">Diastolic Blood Pressure</option>' +
+                        '<option value="cholesterol">Cholesterol</option>' +
+                        '<option value="gluc">Glucose</option>' +
+                        '<option value="smoke">Smoke</option>' +
+                        '<option value="alco">Alcohol</option>' +
+                        '<option value="active">Active</option>' +
+                        '</select>');
+
+                // Create axes for scatter plot (default to age and ap_hi)
+                scatterSvg.append("g")
+                    .attr("class", "x-axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(xScale));
+
+                scatterSvg.append("text")
+                    .attr("class", "x-label")
+                    .attr("x", width / 2)
+                    .attr("y", height + 27) // Adjusted y position
+                    .style("text-anchor", "middle")
+                    .text("Age"); // Default x-axis label text
+
+                scatterSvg.append("g")
+                    .attr("class", "y-axis")
+                    .call(d3.axisLeft(yScale));
+
+                scatterSvg.append("text")
+                    .attr("class", "y-label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -height / 2)
+                    .attr("y", -margin.left + 27)
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Height"); // Default y-axis label text
+
+                // Create axes for bar chart
+                barSvg.append("g")
+                    .attr("class", "x-axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(xBarScale));
+
+                barSvg.append("g")
+                    .attr("class", "y-axis")
+                    .call(d3.axisLeft(yBarScale));
+
+                // Define the heart shape using SVG path
+                var heartPath = "M3,8 A3,3 0,0,1 8,3 A3,3 0,0,1 13,8 Q8,12 3,8 Z";
+
+                // Append hearts for scatter plot
+                var hearts = scatterSvg.selectAll(".heart")
+                    .data(data)
+                    .enter()
+                    .append("path")
+                    .attr("class", "heart")
+                    .attr("d", heartPath)
+                    .attr("transform", function(d) {
+                        return "translate(" + xScale(d.age_in_years) + "," + yScale(d.height) + ") scale(1.5)"; // Adjusted scale
+                    })
+                    .style("fill", "rgba(255, 0, 0, 0.7)"); // Changed heart color to red
+
+                // Append bars for bar chart
+                var bars = barSvg.selectAll(".bar")
+                    .data(bins)
+                    .enter().append("rect")
+                    .attr("class", "bar")
+                    .attr("x", d => xBarScale(d.x0) + 1)
+                    .attr("width", d => Math.max(0, xBarScale(d.x1) - xBarScale(d.x0) - 1))
+                    .attr("y", d => yBarScale(d.length))
+                    .attr("height", d => yBarScale(0) - yBarScale(d.length))
+                    .style("fill", (d, i) => `rgba(255, 0, 0, ${0.2 + i * 0.1})`) // Varying shades of red
+                    .on("click", function(event, d) {
+                        // Filter data based on the age range of the clicked bar
+                        var filteredData = data.filter(function(dataItem) {
+                            return dataItem.age_in_years >= d.x0 && dataItem.age_in_years < d.x1;
+                        });
+                        // Update scatter plot with filtered data
+                        updateScatterPlot(filteredData);
+                    });
+
+                // Function to update scatter plot based on selected variables
+                function updateScatterPlot(data) {
+                    var selectedXOption = d3.select("#x-axis").property("value");
+                    var selectedYOption = d3.select("#y-axis").property("value");
+
+                    // Update xScale and yScale based on selected options and filtered data
+                    xScale.domain([
+                        d3.min(data, d => d[selectedXOption]),
+                        d3.max(data, d => d[selectedXOption])
+                    ]);
+                    if (selectedYOption === "height") {
+                        yScale.domain([55, 250]);
+                    } else if (selectedYOption === "weight") {
+                        yScale.domain([10, 200]);
+                    } else {
+                        yScale.domain([
+                            d3.min(data, d => d[selectedYOption]),
+                            d3.max(data, d => d[selectedYOption])
+                        ]);
+                    }
+
+                    // Update axes on scatter plot
+                    scatterSvg.select(".x-axis")
+                        .transition()
+                        .duration(500)
+                        .call(d3.axisBottom(xScale));
+
+                    scatterSvg.select(".x-label")
+                        .text(selectedXOption); // Update x-axis label text
+
+                    scatterSvg.select(".y-axis")
+                        .transition()
+                        .duration(500)
+                        .call(d3.axisLeft(yScale));
+
+                    scatterSvg.select(".y-label")
+                        .text(selectedYOption); // Update y-axis label text
+
+                    // Update hearts' positions based on selected options and filtered data
+                    hearts.data(data)
+                        .transition()
+                        .duration(500)
+                        .attr("transform", function(d) {
+                            return "translate(" + xScale(d[selectedXOption]) + "," + yScale(d[selectedYOption]) + ") scale(1.5)"; // Adjusted scale
+                        });
+                }
+
+                // Update scatter plot when the page loads
+                updateScatterPlot(data);
+
+                // Event listeners for x-axis and y-axis dropdown changes
+                d3.select("#x-axis").on("change", function() {
+                    updateScatterPlot(data);
+                });
+
+                d3.select("#y-axis").on("change", function() {
+                    updateScatterPlot(data);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
