@@ -3,28 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interactive Charts and Button</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script> 
+  <title>Interactive Charts and Moving Button</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
     }
-    .dipped {
-      background-color: #ff6347;
-      color: white;
-      transform: translateX(100px);
+    h1 {
+      color: #333;
+    }
+    .chart {
+      display: inline-block;
+      margin: 20px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 10px;
+    }
+    svg {
+      border-radius: 8px;
     }
     button {
       margin: 20px;
       padding: 10px 20px;
       font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
     }
-    .chart {
-      display: inline-block;
-      margin: 20px;
+    button:hover {
+      background-color: #0056b3;
     }
-    svg {
-      border: 1px solid #ccc;
+    .dipped {
+      background-color: #ff6347;
+      color: white;
+      transform: translateX(100px);
     }
   </style>
 </head>
@@ -36,14 +57,14 @@
 
   <!-- Scatter Plot -->
   <div class="chart">
-    <h2>Scatter Plot</h2>
-    <svg id="scatterPlot"></svg>
+    <h2>Heart-Shaped Scatter Plot</h2>
+    <svg id="heartScatterPlot" width="400" height="300"></svg>
   </div>
 
   <!-- Bar Chart -->
   <div class="chart">
     <h2>Bar Chart</h2>
-    <svg id="barChart"></svg>
+    <svg id="barChart" width="400" height="300"></svg>
   </div>
 
   <script>
@@ -58,52 +79,65 @@
       };
     }
 
-    // Helper code to open specific files (for Glitch environment)
-    let goto = (file, line) => {
-      window.parent.postMessage(
-        { type: "glitch/go-to-line", payload: { filePath: file, line: line } }, "*"
-      );
-    };
-    const filer = document.querySelectorAll(".fileopener");
-    filer.forEach((f) => {
-      f.onclick = () => { goto(f.dataset.file, f.dataset.line); };
-    });
+    // Heart-Shaped Scatter Plot setup
+    const heartSvg = d3.select("#heartScatterPlot");
 
-    // D3.js Scatter Plot setup
-    const scatterSvg = d3.select("#scatterPlot")
-      .attr("width", 400)
-      .attr("height", 300);
-
-    const scatterData = [
-      { age_in_years: 25, height: 180 },
-      { age_in_years: 30, height: 170 },
-      { age_in_years: 35, height: 160 }
+    const heartData = [
+      { x: 0, y: 0 },
+      { x: 10, y: 15 },
+      { x: 20, y: 25 },
+      { x: 30, y: 35 },
+      { x: 40, y: 30 },
+      { x: 50, y: 20 },
+      { x: 60, y: 15 },
+      { x: 70, y: 10 },
+      { x: 80, y: 20 },
+      { x: 90, y: 25 },
+      { x: 100, y: 35 },
     ];
 
-    const xScale = d3.scaleLinear().domain([20, 40]).range([30, 370]);
-    const yScale = d3.scaleLinear().domain([150, 190]).range([270, 30]);
+    const xScale = d3.scaleLinear().domain([0, 100]).range([30, 370]);
+    const yScale = d3.scaleLinear().domain([-10, 40]).range([270, 30]);
 
-    scatterSvg.selectAll("circle")
-      .data(scatterData)
+    heartSvg.selectAll("circle")
+      .data(heartData)
       .enter()
       .append("circle")
-      .attr("cx", d => xScale(d.age_in_years))
-      .attr("cy", d => yScale(d.height))
+      .attr("cx", d => xScale(d.x))
+      .attr("cy", d => yScale(d.y))
       .attr("r", 8)
-      .style("fill", "teal");
+      .style("fill", "red")
+      .on("mouseover", function (event, d) {
+        d3.select(this).transition()
+          .duration(200)
+          .attr("r", 12)
+          .style("fill", "orange");
+        heartSvg.append("text")
+          .attr("x", xScale(d.x))
+          .attr("y", yScale(d.y) - 10)
+          .attr("class", "tooltip")
+          .text(`(${d.x}, ${d.y})`)
+          .style("text-anchor", "middle")
+          .style("fill", "black");
+      })
+      .on("mouseout", function (d) {
+        d3.select(this).transition()
+          .duration(200)
+          .attr("r", 8)
+          .style("fill", "red");
+        heartSvg.selectAll(".tooltip").remove();
+      });
 
-    scatterSvg.append("g")
+    heartSvg.append("g")
       .attr("transform", "translate(0,270)")
-      .call(d3.axisBottom(xScale));
-    
-    scatterSvg.append("g")
+      .call(d3.axisBottom(xScale).ticks(5).tickFormat(d => d + ' units'));
+
+    heartSvg.append("g")
       .attr("transform", "translate(30,0)")
-      .call(d3.axisLeft(yScale));
+      .call(d3.axisLeft(yScale).ticks(5).tickFormat(d => d + ' units'));
 
     // D3.js Bar Chart setup
-    const barSvg = d3.select("#barChart")
-      .attr("width", 400)
-      .attr("height", 300);
+    const barSvg = d3.select("#barChart");
 
     const barData = [4, 8, 15, 16, 23, 42];
 
